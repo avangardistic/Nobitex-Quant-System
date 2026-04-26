@@ -1,0 +1,14 @@
+{
+  "conservative": {
+    "risk_per_trade": 0.005,
+    "max_drawdown": 0.1
+  },
+  "balanced": {
+    "risk_per_trade": 0.01,
+    "max_drawdown": 0.15
+  },
+  "aggressive": {
+    "risk_per_trade": 0.02,
+    "max_drawdown": 0.25
+  }
+}
