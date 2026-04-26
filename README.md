@@ -564,3 +564,162 @@ If you want to extend the system, the safest workflow is:
 2. validate it with `quant strategy validate`
 3. run `pytest --cov`
 4. backtest it on a prepared CSV dataset
+
+### 📝 Nobitex Quant System - Complete Quick Start Guide
+
+# ====================================================================
+# 1. FETCH HISTORICAL DATA
+# ====================================================================
+# Download price data from Nobitex API for backtesting and analysis
+# - symbol: Trading pair (BTCIRT, BTCUSDT, PAXGIRT)
+# - timeframe: Minutes per candle (15, 60, 240)
+# - months: Number of past months to download
+# - overwrite: Overwrite existing file if present
+
+quant data fetch --symbol BTCIRT --timeframe 60 --months 3 --overwrite
+
+
+# ====================================================================
+# 2. VALIDATE STRATEGY
+# ====================================================================
+# Verify strategy correctness and safety before backtesting
+# Checks performed:
+# - Inherits from BaseStrategy
+# - Instantiable without constructor arguments
+# - No future data leakage
+# - Indicator alignment with input data
+# - Deterministic and replayable
+
+quant strategy validate --file strategies/user/SimpleBuyAndHold.py
+
+
+# ====================================================================
+# 3. RUN BACKTEST
+# ====================================================================
+# Simulate strategy execution on historical data
+# - strategy: Strategy class name
+# - symbol: Trading pair symbol
+# - data-file: Path to CSV data file
+# - capital: Initial capital
+# - execution: Execution model (next_open = next bar open)
+# - seed: Random seed for reproducibility
+
+quant backtest --strategy SimpleBuyAndHold --symbol BTCIRT --data-file data/btcirt_60m_2026-01-26_2026-04-26.csv --capital 1000000 --execution next_open --seed 42
+
+
+# ====================================================================
+# 4. PAPER TRADING (Virtual Trading)
+# ====================================================================
+# Run strategy in simulated environment with virtual capital
+# - No real money involved
+# - Real-time prices fetched from Nobitex API
+# - All trades logged to reports/paper_trading/
+# - Safe for testing strategies in live market conditions
+
+# Start paper trading session
+quant paper start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --max-ticks 500
+
+# Start with custom settings (custom tick interval)
+quant paper start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --interval-seconds 60 --max-ticks 1000
+
+# List active sessions
+quant paper list
+
+# View session report
+quant paper report --session-id <session_id>
+
+# Stop a running session
+quant paper stop --session-id <session_id>
+
+# Stop all active sessions
+quant paper stop --all
+
+
+# ====================================================================
+# 5. LIVE TRADING (Real Trading - USE WITH CAUTION)
+# ====================================================================
+# Execute strategy with real money on the exchange
+# ⚠️ WARNING: Real capital at risk
+# Prerequisites:
+# - Configure NOBITEX_API_TOKEN in .env file
+# - Test with --test-mode first
+# - Set daily loss limits and max position sizes
+
+# Start with test mode (safe - no real execution)
+quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.02 --test-mode
+
+# Start live trading (requires API key in .env)
+quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.01
+
+# Start with lower risk (0.5% per trade)
+quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.005 --max-position 50000
+
+# Check trading status
+quant live status
+
+# View open positions
+quant live positions
+
+# Emergency stop (cancel all orders and close positions)
+quant live stop --emergency
+
+# Graceful stop for a specific session
+quant live stop --session-id <session_id>
+
+
+# ====================================================================
+# 6. ONE-LINE COMMANDS
+# ====================================================================
+
+# Fetch + Validate + Backtest (all in one line)
+quant data fetch --symbol BTCIRT --timeframe 60 --months 3 --overwrite && quant strategy validate --file strategies/user/SimpleBuyAndHold.py && quant backtest --strategy SimpleBuyAndHold --symbol BTCIRT --data-file data/btcirt_60m_2026-01-26_2026-04-26.csv --capital 1000000 --execution next_open --seed 42
+
+# Start paper trading
+quant paper start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --max-ticks 500
+
+# Start live trading in test mode
+quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.02 --test-mode
+
+
+# ====================================================================
+# 7. RESULTS & REPORTS
+# ====================================================================
+
+# After backtest, reports are created in reports/ folder:
+# - reports/latest_backtest.json (Raw JSON data)
+# - reports/latest_backtest.html (Visual HTML report)
+
+# Quick view of last backtest result
+python -c "import json; d=json.load(open('reports/latest_backtest.json')); print(f'Return: {d['metrics']['total_return']*100:.2f}%, Sharpe: {d['metrics']['sharpe']:.2f}, Trades: {len(d['trades'])}')"
+
+# Paper trading reports location:
+# - reports/paper_trading/<session_id>.json
+# - reports/paper_trading/<session_id>.html
+
+# Live trading reports location:
+# - reports/live_trading/<session_id>.json
+
+
+# ====================================================================
+# IMPORTANT NOTES
+# ====================================================================
+
+# Paper Trading:
+# ✅ No financial risk
+# ✅ Ideal for strategy validation in real conditions
+# ✅ Real-time prices from Nobitex API
+# ✅ Full session logging and reporting
+
+# Live Trading:
+# ⚠️ Real capital at risk
+# ⚠️ Always test with --test-mode first
+# ⚠️ Set risk between 0.01 and 0.02 (1% to 2%)
+# ⚠️ Keep --emergency kill switch ready
+# ⚠️ Configure .env with valid API token
+
+# Best Practices:
+# 1. Always fetch fresh data first
+# 2. Validate your strategy
+# 3. Run backtests
+# 4. Paper trade to verify live behavior
+# 5. Start live trading with minimal capital after full validation
