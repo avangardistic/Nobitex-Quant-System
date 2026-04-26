@@ -23,6 +23,7 @@
 - [Configuration](#configuration)
 - [Testing and Validation](#testing-and-validation)
 - [Documentation Map](#documentation-map)
+- [Complete Quick Start Guide](#complete-quick-start-guide)
 - [Notes and Limitations](#notes-and-limitations)
 
 ## Why This Project Exists
@@ -553,6 +554,193 @@ Implementation references:
 - `core/execution_calibrator.py` — order-book-based calibration helpers
 - `strategies/base/validation.py` — strategy validation and replay checks
 - `backtest/correctness_checker.py` — known-result correctness scenarios
+
+## Complete Quick Start Guide
+
+Use this end-to-end checklist to fetch data, validate a strategy, run a backtest, and move safely from paper trading to live trading.
+
+> [!NOTE]
+> Date-stamped data filenames are examples. Use the exact CSV path printed by `quant data fetch` in your own backtest command.
+
+### 1. Fetch Historical Data
+
+Download price data from the Nobitex API for backtesting and analysis.
+
+- `--symbol` is the trading pair, such as `BTCIRT`, `BTCUSDT`, or `PAXGIRT`.
+- `--timeframe` is the candle resolution, such as `15`, `60`, or `240` minutes.
+- `--months` is the number of past 30-day months to download.
+- `--overwrite` replaces an existing range-specific CSV if present.
+
+```bash
+quant data fetch --symbol BTCIRT --timeframe 60 --months 3 --overwrite
+```
+
+### 2. Validate Strategy
+
+Verify strategy correctness and safety before backtesting.
+
+Validation checks include:
+
+- inheritance from `BaseStrategy`
+- construction without required constructor arguments
+- no future-data leakage under validation heuristics
+- indicator alignment with input data
+- deterministic and replayable behavior
+
+```bash
+quant strategy validate --file strategies/user/SimpleBuyAndHold.py
+```
+
+### 3. Run Backtest
+
+Simulate strategy execution on historical data.
+
+- `--strategy` is the strategy module name for user strategies or class name for built-ins.
+- `--symbol` is the trading pair symbol.
+- `--data-file` is the path to the downloaded CSV data file.
+- `--capital` is the initial capital.
+- `--execution next_open` executes signals at the next bar open.
+- `--seed` controls reproducibility.
+
+```bash
+quant backtest --strategy SimpleBuyAndHold --symbol BTCIRT --data-file data/btcirt_60m_2026-01-26_2026-04-26.csv --capital 1000000 --execution next_open --seed 42
+```
+
+### 4. Paper Trading
+
+Run a strategy in a simulated environment with virtual capital.
+
+- No real money is involved.
+- Real-time prices can be fetched from the Nobitex API.
+- Trades and session state are logged under `reports/paper_trading/`.
+- This mode is safer for testing strategies in live market conditions.
+
+Start a paper trading session:
+
+```bash
+quant paper start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --max-ticks 500
+```
+
+Start with a custom tick interval:
+
+```bash
+quant paper start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --interval-seconds 60 --max-ticks 1000
+```
+
+Manage paper sessions:
+
+```bash
+quant paper list
+quant paper report --session-id <session_id>
+quant paper stop --session-id <session_id>
+```
+
+### 5. Live Trading
+
+Execute a strategy through the live trading workflow.
+
+> [!WARNING]
+> Real trading can put capital at risk. Configure credentials carefully, test with `--test-mode` first, and keep the emergency stop command ready.
+
+Prerequisites:
+
+- Configure `NOBITEX_API_TOKEN` in `.env`.
+- Test the exact strategy and symbol with `--test-mode` first.
+- Set daily loss limits and max position sizes in configuration.
+- Keep risk per trade small, such as `0.005` to `0.02`.
+
+Start in test mode with no real execution:
+
+```bash
+quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.02 --test-mode
+```
+
+Start real mode only after full validation:
+
+```bash
+quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.01 --real
+```
+
+Start with lower risk:
+
+```bash
+quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.005 --real
+```
+
+Monitor or stop live trading:
+
+```bash
+quant live status
+quant live positions
+quant live stop --emergency
+```
+
+### 6. One-Line Commands
+
+Fetch data, validate the strategy, and run a backtest:
+
+```bash
+quant data fetch --symbol BTCIRT --timeframe 60 --months 3 --overwrite && quant strategy validate --file strategies/user/SimpleBuyAndHold.py && quant backtest --strategy SimpleBuyAndHold --symbol BTCIRT --data-file data/btcirt_60m_2026-01-26_2026-04-26.csv --capital 1000000 --execution next_open --seed 42
+```
+
+Start paper trading:
+
+```bash
+quant paper start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --max-ticks 500
+```
+
+Start live trading in test mode:
+
+```bash
+quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.02 --test-mode
+```
+
+### 7. Results and Reports
+
+Backtest reports are created under `reports/`:
+
+- `reports/latest_backtest.json` contains raw JSON data.
+- `reports/latest_backtest.html` contains the visual HTML report.
+
+Quickly inspect the last backtest result:
+
+```bash
+python -c 'import json; d=json.load(open("reports/latest_backtest.json")); print("Return: {:.2f}%, Sharpe: {:.2f}, Trades: {}".format(d["metrics"]["total_return"]*100, d["metrics"]["sharpe"], len(d["trades"])))'
+```
+
+Paper trading reports are saved under:
+
+- `reports/paper_trading/<session_id>.json`
+- `reports/paper_trading/<session_id>.html`
+
+Live trading reports are saved under:
+
+- `reports/live_trading/<session_id>.json`
+
+### Important Notes
+
+Paper trading:
+
+- ✅ No financial risk
+- ✅ Ideal for strategy validation in real conditions
+- ✅ Supports Nobitex market data usage
+- ✅ Provides session logging and reporting
+
+Live trading:
+
+- ⚠️ Real capital can be at risk in real mode
+- ⚠️ Always test with `--test-mode` first
+- ⚠️ Keep risk small, usually between `0.005` and `0.02`
+- ⚠️ Keep `quant live stop --emergency` ready
+- ⚠️ Configure `.env` with a valid API token before real use
+
+Best practices:
+
+1. Fetch fresh data first.
+2. Validate your strategy.
+3. Run deterministic backtests.
+4. Paper trade to verify live behavior.
+5. Start live trading with minimal capital only after full validation.
 
 ## Useful Commands
 
