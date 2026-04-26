@@ -1,109 +1,137 @@
 # Nobitex Quant System
 
-Nobitex Quant System is a standalone Python trading research project for Nobitex with three main goals:
+> A trust-first Python research and trading framework for **Nobitex** — built for reproducible backtests, validated strategy development, calibrated execution costs, and safe paper/live trading workflows.
 
-- keep the core trading engine separate from user strategy code
-- produce deterministic, trustable backtest results
-- enforce a strong testing and validation workflow for both built-in and user strategies
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Package](https://img.shields.io/badge/package-setuptools-7A4DFF)
+![Tests](https://img.shields.io/badge/tests-pytest-0A7EA4)
+![Trading](https://img.shields.io/badge/trading-research%20%7C%20paper%20%7C%20live-00A86B)
 
-The project is organized so users only need to add or edit files inside `strategies/user/` when creating new strategies. Core execution, cost modeling, reporting, validation, and live/paper trading helpers remain isolated in their own packages.
+## Table of Contents
 
-If another AI agent or coding assistant will work on this repository, start with:
+- [Why This Project Exists](#why-this-project-exists)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Market Data](#market-data)
+- [Backtesting](#backtesting)
+- [Strategy Development](#strategy-development)
+- [Execution Cost Modeling](#execution-cost-modeling)
+- [Paper Trading](#paper-trading)
+- [Live Trading](#live-trading)
+- [Configuration](#configuration)
+- [Testing and Validation](#testing-and-validation)
+- [Documentation Map](#documentation-map)
+- [Notes and Limitations](#notes-and-limitations)
 
-- `docs/AI_AGENT_ONBOARDING.md`
-- `strategies/user/AI_GUIDE.md`
-- `strategies/user/AI_CHECKLIST.md`
+## Why This Project Exists
 
-## Highlights
+Most trading experiments fail because the research loop is not reproducible: future data leaks into decisions, execution costs are hand-waved, strategy state is not reset safely, and paper/live code quietly diverges from backtest assumptions.
 
-- Deterministic backtesting with a configurable random seed
-- No-lookahead strategy execution model using historical slices only
-- Cost modeling for commission, spread, and slippage in both `static` and `calibrated` execution modes
-- Strategy validation tools for inheritance, indicator shape/alignment, deterministic replay, reset safety, and anti-lookahead checks
-- Built-in sample strategies for moving-average crossover and RSI
-- Paper trading and live trading session commands with audit reporting and emergency-stop support
-- CLI commands for correctness checks, data download, calibration, backtests, strategy validation, and run comparison
-- Unit, integration, property-based, and strategy validation tests
+Nobitex Quant System is designed around a stricter model:
 
-## Project layout
+- **Strategies decide only from historical slices** exposed through `context.history`.
+- **Backtests are deterministic** for identical inputs, configuration, and random seed.
+- **Costs are explicit** through commission, spread, and slippage models.
+- **Strategy validation is first-class** before a strategy is trusted.
+- **Research and live execution are separated** so operational code does not mutate historical assumptions.
+
+The result is a compact framework for building, testing, comparing, and operating Nobitex strategies with a strong emphasis on correctness.
+
+## Key Features
+
+| Area | What You Get |
+| --- | --- |
+| Backtesting | Deterministic engine, configurable execution model, reproducibility hash, trade reports |
+| Strategy Safety | Base strategy contract, reset checks, indicator alignment checks, anti-lookahead validation |
+| Cost Modeling | Static and calibrated execution profiles with commission, spread, and slippage |
+| Market Data | Nobitex historical candle download with local CSV caching |
+| Reporting | JSON and HTML backtest reports, run comparison utilities, audit payloads |
+| Paper Trading | Simulated sessions, saved reports, session start/stop/list/report commands |
+| Live Trading | Test mode, risk limits, emergency stop, audit reports, Nobitex API integration |
+| Testing | Unit, integration, property-based, correctness, and strategy validation tests |
+
+## Architecture
 
 ```text
 .
-├── analysis/      # reports, summaries, comparators, visualization payloads
-├── backtest/      # metrics, optimization helpers, walk-forward, correctness checks
-├── config/        # runtime settings and risk profile definitions
-├── core/          # client, data manager, cost engine, order manager, backtest engine
-├── docs/          # trust, testing, API, configuration, and strategy docs
-├── live/          # paper trading, live execution, session, and market-feed helpers
+├── analysis/                 # Reports, summaries, run comparison helpers
+├── backtest/                 # Metrics, correctness checks, optimization, walk-forward tools
+├── config/                   # Runtime settings and risk profiles
+├── core/                     # Backtest engine, data manager, client, costs, calibration
+├── docs/                     # Trust, configuration, API, testing, and strategy guides
+├── live/                     # Paper/live sessions, risk, order manager, market feed helpers
 ├── strategies/
-│   ├── base/      # BaseStrategy, Signal, context, validation helpers
-│   ├── builtin/   # reference strategies
-│   └── user/      # add your custom strategies here
-└── tests/         # unit, integration, property, and strategy tests
+│   ├── base/                 # BaseStrategy, Signal, context, validation helpers
+│   ├── builtin/              # Reference strategies such as MA crossover and RSI
+│   └── user/                 # Your custom strategies live here
+├── tests/                    # Unit, integration, property, and strategy tests
+├── cli.py                    # `quant` command-line interface
+├── pyproject.toml            # Package metadata and dependencies
+└── README.md
 ```
 
-## How the system is split
+### Layer Responsibilities
 
-The repository is intentionally divided into layers with different responsibilities:
+- `strategies/user/` is the safe user-editable area for custom trading ideas.
+- `strategies/base/` defines the public strategy contract and validation rules.
+- `core/` owns execution-critical primitives such as fills, costs, data loading, and backtesting.
+- `backtest/` provides correctness checks, metrics, optimization, and walk-forward helpers.
+- `analysis/` turns runs into reports and comparison payloads.
+- `live/` handles paper/live sessions, audit state, risk controls, and operational concerns.
 
-- `strategies/user/` is the user-editable area for custom trading logic
-- `strategies/base/` defines the strategy contract, context, signals, and validation helpers
-- `core/` contains execution primitives such as the backtest engine and cost model
-- `backtest/` contains reporting-oriented helpers such as metrics, correctness checks, and walk-forward utilities
-- `live/` contains paper/live scaffolding and should not be treated as equivalent to the research backtester
-- `live/` reuses strategy signals but maintains separate session state, audit logs, and risk controls for paper/live trading
-
-This separation matters for trust: strategy code should express decision logic, while execution, fills, costs, and validation live in the framework.
+This split keeps strategy code focused on decisions while the framework owns execution, accounting, reproducibility, and validation.
 
 ## Installation
 
-Create a virtual environment, activate it, and install the project requirements.
+### Requirements
+
+- Python `3.11+`
+- `pip`
+- A virtual environment is recommended
+
+### Setup
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -e .[dev]
+```
+
+If your environment requires system-package override flags:
+
+```bash
 pip install -e .[dev] --break-system-packages
 ```
 
-If your environment uses a package mirror, you can point `pip` at that mirror during installation:
+If you use a PyPI mirror:
 
 ```bash
 pip install --index-url https://mirror-pypi.runflare.com/simple -e .[dev]
 ```
-or
-```bash
-pip install -e .[dev] --break-system-packages
-```
-## Quick start
 
-Run the full test suite with coverage:
+Verify that the CLI is available:
 
 ```bash
-pytest --cov
+quant --help
 ```
 
-Run the built-in correctness check for the backtest engine:
+## Quick Start
+
+Run the correctness checks:
 
 ```bash
 quant test correctness
 ```
 
-Validate a user strategy file:
+Run the full test suite:
 
 ```bash
-quant strategy validate --file strategies/user/my_strategy.py
+pytest
 ```
 
-Run a sample backtest:
-
-```bash
-quant backtest \
-  --strategy MACrossoverStrategy \
-  --symbol BTCIRT \
-  --data-file data/btcirt_1h.csv
-```
-
-Download market data from Nobitex:
+Download recent BTC/IRT candles:
 
 ```bash
 quant data fetch \
@@ -112,30 +140,84 @@ quant data fetch \
   --months 3
 ```
 
-Start a paper trading session:
+Run a deterministic backtest:
 
 ```bash
-quant paper start --strategy MACrossoverStrategy --symbol BTCIRT --capital 10000
+quant backtest \
+  --strategy MACrossoverStrategy \
+  --symbol BTCIRT \
+  --data-file data/btcirt_15m_2026-01-19_2026-04-19.csv \
+  --capital 10000000 \
+  --execution next_open \
+  --seed 42
 ```
 
-Start a live trading session on test mode:
+Validate a custom strategy:
 
 ```bash
-quant live start --strategy MACrossoverStrategy --symbol BTCIRT --capital 10000 --risk 0.01 --test-mode
+quant strategy validate --file strategies/user/my_strategy.py
 ```
 
-## Backtest example
+Start a simulated paper session:
 
-The CLI backtester expects a CSV file with a `timestamp` column and standard OHLCV columns:
+```bash
+quant paper start \
+  --strategy MACrossoverStrategy \
+  --symbol BTCIRT \
+  --capital 10000
+```
 
-- `timestamp`
-- `open`
-- `high`
-- `low`
-- `close`
-- `volume`
+Start a live session in safe test mode:
 
-Example input file:
+```bash
+quant live start \
+  --strategy MACrossoverStrategy \
+  --symbol BTCIRT \
+  --capital 10000 \
+  --risk 0.01 \
+  --test-mode
+```
+
+## Market Data
+
+Historical data is downloaded through `core/data_manager.py` and written to `data/` as range-specific CSV files.
+
+Fetch the last 30 days by default:
+
+```bash
+quant data fetch --symbol BTCIRT --timeframe 15
+```
+
+Fetch a fixed lookback window:
+
+```bash
+quant data fetch \
+  --symbol BTCIRT \
+  --timeframe 15 \
+  --days 7
+```
+
+Fetch an explicit UTC range:
+
+```bash
+quant data fetch \
+  --symbol BTCIRT \
+  --timeframe 15 \
+  --start 2025-01-01T00:00:00Z \
+  --end 2025-03-31T23:59:59Z \
+  --overwrite
+```
+
+Useful options:
+
+- `--months 3` uses a 3 × 30-day lookback from now.
+- `--days 7` uses a day-based lookback from now.
+- `--start ... --end ...` uses an explicit UTC time range.
+- `--use-cache` reuses the target CSV when it already exists.
+- `--overwrite` replaces the existing target CSV.
+- `--refresh` forces a fresh download when the target file does not exist.
+
+Expected backtest CSV schema:
 
 ```csv
 timestamp,open,high,low,close,volume
@@ -144,72 +226,46 @@ timestamp,open,high,low,close,volume
 2024-01-01T02:00:00Z,101.7,103,101.5,102.4,1300
 ```
 
-Run a backtest with the built-in moving average crossover strategy:
+## Backtesting
+
+Backtests run one strategy over one OHLCV dataset and produce both machine-readable and human-readable reports.
 
 ```bash
 quant backtest \
   --strategy MACrossoverStrategy \
   --symbol BTCIRT \
-  --data-file data/btcirt_1h.csv \
+  --data-file data/btcirt_15m_2026-01-19_2026-04-19.csv \
   --capital 10000000 \
   --execution next_open \
-  --seed 42
+  --seed 42 \
+  --execution-mode static
 ```
 
-This command writes output reports to:
+Generated reports:
 
 - `reports/latest_backtest.json`
 - `reports/latest_backtest.html`
 
-The report includes:
+Report payloads include:
 
-- top-level performance metrics
-- trade list output
-- trust and correctness metadata
-- reproducibility hash for the generated trades
+- performance metrics
+- executed trades
+- cost breakdown
+- execution settings
+- trust metadata
+- deterministic reproducibility hash
 
-## Documentation map
+Compare two saved backtest reports:
 
-Use this section as the primary index for the repository documentation.
+```bash
+quant compare-runs \
+  --run1 reports/run1.json \
+  --run2 reports/run2.json
+```
 
-Core project and trust docs:
+## Strategy Development
 
-- `docs/AI_AGENT_ONBOARDING.md` - short read-first brief for future AI agents
-- `docs/trust_backtesting.md` - trust model, deterministic execution assumptions, and signal metadata behavior
-- `docs/testing_guide.md` - what correctness-critical tests should cover
-- `docs/live_trading.md` - setup, commands, and safety notes for paper/live trading
-- `docs/configuration.md` - environment variables and reproducibility-sensitive settings
-- `docs/api/nobitex_reference.md` - Nobitex endpoint summary used by the client
-
-Strategy development docs:
-
-- `docs/strategy_development/writing_strategies.md` - strategy authoring rules and supported metadata
-- `docs/strategy_development/validation_process.md` - what `quant strategy validate` checks
-- `strategies/user/AI_GUIDE.md` - practical instructions for AI-written strategies
-- `strategies/user/AI_CHECKLIST.md` - review checklist before accepting a strategy
-- `strategies/user/example_ai_strategy.py` - minimal example strategy
-
-Implementation areas worth reading together with the docs:
-
-- `core/backtest_engine.py` - execution model, position lifecycle, and trust payload
-- `core/cost_engine.py` - commission, spread, and slippage modeling
-- `core/data_manager.py` - historical data download and local CSV caching
-- `core/execution_profile.py` - static vs calibrated execution profile schema
-- `core/execution_calibrator.py` - order-book-based calibration helpers
-- `strategies/base/validation.py` - strategy validation and replay checks
-- `backtest/correctness_checker.py` - known-result correctness scenarios
-
-## Writing a user strategy
-
-User strategies belong in `strategies/user/` and should inherit from `BaseStrategy`.
-
-If another AI agent will be writing strategies in this repo, point it to:
-
-- `strategies/user/AI_GUIDE.md`
-- `strategies/user/AI_CHECKLIST.md`
-- `strategies/user/example_ai_strategy.py`
-
-Minimal example:
+Custom strategies belong in `strategies/user/` and should inherit from `BaseStrategy`.
 
 ```python
 import pandas as pd
@@ -232,206 +288,63 @@ class MyMomentumStrategy(BaseStrategy):
         if len(context.history) < 2:
             return None
 
-        if context.history["close"].iloc[-1] > context.history["close"].iloc[-2]:
+        current_close = context.history["close"].iloc[-1]
+        previous_close = context.history["close"].iloc[-2]
+
+        if current_close > previous_close:
             return Signal(
                 timestamp=context.data.index[context.current_index],
                 symbol=context.symbol,
                 action="buy",
             )
+
         return None
 ```
 
-Save that file as `strategies/user/MyMomentumStrategy.py`, then validate it:
+Save it as `strategies/user/my_momentum.py`, then validate it:
 
 ```bash
-quant strategy validate --file strategies/user/MyMomentumStrategy.py
+quant strategy validate --file strategies/user/my_momentum.py
 ```
 
-If the strategy keeps mutable state between bars, implement `reset()` so a new backtest or validation run starts from a clean state.
-
-Optional signal metadata supported by the backtest engine:
-
-- `quantity`: explicit position size instead of default all-in sizing
-- `execution_price`: explicit fill price for strategy-managed pending/exit logic
-- `engine_managed_exits`: set to `False` when the strategy emits its own exit signals and prices
-- `exit_reason`: recorded on the trade when the signal closes an existing position
-
-Practical strategy constraints:
-
-- strategies should decide from `context.history`
-- strategies should not maintain hidden state unless they can fully restore it in `reset()`
-- strategies should not assume multiple concurrent engine positions unless the framework is extended for that
-- strategies should keep indicator lengths and indexes aligned with the input dataframe
-- strategies should be instantiable without required constructor arguments so validation can construct them safely
-
-## Trust and correctness model
-
-This project is designed around reproducible research rather than optimistic simulation.
-
-- Strategies receive `context.history`, not future rows
-- Signals are generated per bar and executed using the configured execution model unless a strategy explicitly supplies `execution_price`
-- Costs are applied through `core/cost_engine.py`
-- Backtests can use either `static` configured costs or a saved `calibrated` execution profile
-- Backtest output includes seed, execution model, cost breakdown, and reproducibility hash
-- The engine resets each strategy before every run so reused strategy instances remain reproducible
-- `backtest/correctness_checker.py` verifies known-result scenarios such as buy-and-hold and cost drag
-
-The most important correctness assumptions are:
-
-- identical inputs and seed should produce identical trades and metrics
-- strategy replay should remain stable after `reset()`
-- future-data mutation should not change historical decisions
-- execution costs should be applied consistently on entry and exit
-- live execution helpers should remain conceptually separate from research/backtest logic
-- paper/live trading should never change historical backtest results for the same seed and inputs
-
-For more detail, see:
-
-- `docs/AI_AGENT_ONBOARDING.md`
-- `docs/trust_backtesting.md`
-- `docs/testing_guide.md`
-- `docs/configuration.md`
-- `docs/api/nobitex_reference.md`
-- `docs/strategy_development/writing_strategies.md`
-- `docs/strategy_development/validation_process.md`
-- `strategies/user/AI_GUIDE.md`
-- `strategies/user/AI_CHECKLIST.md`
-
-## Useful commands
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov
-
-# Run correctness checks
-quant test correctness
-
-# Calibrate execution costs from live order books
-quant calibrate execution --symbol BTCIRT --samples 5
-
-# Validate a strategy
-quant strategy validate --file strategies/user/my_strategy.py
-
-# Compare two backtest reports
-quant compare-runs --run1 reports/run1.json --run2 reports/run2.json
-
-# Start paper trading
-quant paper start --strategy MACrossoverStrategy --symbol BTCIRT --capital 10000
-
-# Stop a paper trading session
-quant paper stop --session-id <id>
-
-# Start live trading
-quant live start --strategy MACrossoverStrategy --symbol BTCIRT --capital 10000 --risk 0.01 --test-mode
-
-# Emergency stop live trading
-quant live stop --emergency
-```
-
-## Configuration
-
-Runtime settings are loaded from `.env` using the `NOBITEX_` prefix.
-
-Start from the example file:
-
-```bash
-cp .env.example .env
-```
-
-Then set your Nobitex token in `.env`:
-
-```env
-NOBITEX_ENV=prod
-NOBITEX_API_TOKEN=your_token_here
-```
-
-Important settings include:
-
-- `NOBITEX_ENV`
-- `NOBITEX_API_TOKEN`
-- `NOBITEX_COMMISSION_RATE`
-- `NOBITEX_SPREAD_BPS`
-- `NOBITEX_SLIPPAGE_BPS`
-- `NOBITEX_RANDOM_SEED`
-- `NOBITEX_EXECUTION_MODEL`
-- `NOBITEX_EXECUTION_MODE`
-- `NOBITEX_EXECUTION_PROFILE_PATH`
-- `NOBITEX_MAX_POSITIONS`
-- `NOBITEX_ALLOW_SHORTING`
-- `NOBITEX_PAPER_CAPITAL`
-- `NOBITEX_PAPER_FEE_RATE`
-- `NOBITEX_LIVE_API_KEY`
-- `NOBITEX_LIVE_API_SECRET`
-- `NOBITEX_LIVE_MAX_POSITION_SIZE`
-- `NOBITEX_LIVE_MAX_DAILY_LOSS`
-- `NOBITEX_LIVE_RISK_PER_TRADE`
-- `NOBITEX_WEBSOCKET_URL`
-- `NOBITEX_MARKET_DATA_POLL_SECONDS`
-
-See `docs/configuration.md` for the full configuration reference.
-
-## Downloading historical data
-
-The CLI provides a data download command backed by `core/data_manager.py`.
-
-Fetch the last 3 months of BTCIRT 15-minute candles:
-
-```bash
-quant data fetch \
-  --symbol BTCIRT \
-  --timeframe 15 \
-  --months 3
-```
-
-This writes a range-specific CSV under `data/`, for example:
-
-```text
-data/btcirt_15m_2026-01-19_2026-04-19.csv
-```
-
-Useful options:
-
-- `--months 3` for a 3 x 30-day lookback
-- `--days 7` for a day-based lookback
-- `--start 2025-01-01T00:00:00Z --end 2025-03-31T23:59:59Z` for an explicit UTC range
-- `--use-cache` to reuse an existing range-specific CSV
-- `--overwrite` to replace an existing range-specific CSV
-- `--refresh` to force a fresh download when the target file does not already exist
-
-If the target CSV already exists, the command now refuses to overwrite it unless you pass either `--use-cache` or `--overwrite`.
-
-Example explicit date range:
-
-```bash
-quant data fetch \
-  --symbol BTCIRT \
-  --timeframe 15 \
-  --start 2025-01-01T00:00:00Z \
-  --end 2025-03-31T23:59:59Z \
-  --overwrite
-```
-
-Use the downloaded file in a backtest:
+Run it by module name:
 
 ```bash
 quant backtest \
-  --strategy MACrossoverStrategy \
+  --strategy my_momentum \
   --symbol BTCIRT \
   --data-file data/btcirt_15m_2026-01-19_2026-04-19.csv
 ```
 
-One-line example:
+### Strategy Rules
 
-```bash
-quant backtest --strategy BuyAndHoldPAXGIRT --symbol PAXGIRT --data-file data/paxgirt_15m_2026-01-19_2026-04-19.csv --capital 1000000 --execution next_open --seed 42
-```
+- Use `context.history` for decisions; do not read future rows.
+- Keep indicator indexes and lengths aligned with the input dataframe.
+- Make the class instantiable without required constructor arguments.
+- Implement `reset()` when using mutable state between bars.
+- Avoid hidden state that cannot be fully restored before validation or replay.
+- Assume one open engine-managed position unless the framework is extended.
 
-## Static vs calibrated execution costs
+### Optional Signal Metadata
 
-Use `static` mode for simple research with fixed assumptions:
+- `quantity` sets explicit position size instead of default all-in sizing.
+- `execution_price` sets an explicit strategy-managed fill price.
+- `engine_managed_exits=False` lets the strategy manage its own exits.
+- `exit_reason` records why a signal closed an existing position.
+
+For AI-assisted strategy writing, start with:
+
+- `strategies/user/AI_GUIDE.md`
+- `strategies/user/AI_CHECKLIST.md`
+- `strategies/user/example_ai_strategy.py`
+
+## Execution Cost Modeling
+
+The backtest engine supports two execution-cost modes.
+
+### Static Mode
+
+Use fixed settings for fast research and repeatable experiments:
 
 ```bash
 quant backtest \
@@ -441,13 +354,18 @@ quant backtest \
   --execution-mode static
 ```
 
-Build a calibrated execution profile from live order books:
+### Calibrated Mode
+
+Build an execution profile from live order-book snapshots:
 
 ```bash
-quant calibrate execution --symbol BTCIRT --samples 5 --output reports/execution_profiles/btcirt_latest.json
+quant calibrate execution \
+  --symbol BTCIRT \
+  --samples 5 \
+  --output reports/execution_profiles/btcirt_latest.json
 ```
 
-Then use it in a realism-sensitive backtest:
+Use the profile in a realism-sensitive backtest:
 
 ```bash
 quant backtest \
@@ -457,269 +375,233 @@ quant backtest \
   --execution-profile reports/execution_profiles/btcirt_latest.json
 ```
 
-Calibrated mode does not change strategy logic. It only changes the execution-cost assumptions loaded into the backtest.
+Calibrated mode does not change strategy logic. It only changes the commission, spread, and slippage assumptions loaded into the backtest.
 
-## Paper trading and live trading
+## Paper Trading
 
-Paper trading uses strategy signals with virtual capital and saves reports under `reports/paper_trading/`.
+Paper trading reuses strategy signals with virtual capital and saves reports under `reports/paper_trading/`.
 
-Start a paper session:
+Start a session:
 
 ```bash
-quant paper start --strategy MACrossoverStrategy --symbol BTCIRT --capital 10000
+quant paper start \
+  --strategy MACrossoverStrategy \
+  --symbol BTCIRT \
+  --capital 10000 \
+  --interval-seconds 5 \
+  --max-ticks 120
 ```
 
-Stop it:
+Use a local data file for deterministic simulation:
 
 ```bash
+quant paper start \
+  --strategy MACrossoverStrategy \
+  --symbol BTCIRT \
+  --data-file data/btcirt_15m_2026-01-19_2026-04-19.csv
+```
+
+Manage sessions:
+
+```bash
+quant paper list
+quant paper report --session-id <id>
 quant paper stop --session-id <id>
 ```
 
-List sessions:
+## Live Trading
+
+Live trading uses Nobitex credentials, account-level risk controls, session state, and audit reports under `reports/live_trading/`.
+
+Start in test mode first:
 
 ```bash
-quant paper list
+quant live start \
+  --strategy MACrossoverStrategy \
+  --symbol BTCIRT \
+  --capital 10000 \
+  --risk 0.01 \
+  --test-mode
 ```
 
-Read the report:
+Operational commands:
 
 ```bash
-quant paper report --session-id <id>
+quant live status
+quant live positions
+quant live stop --emergency
 ```
 
-Live trading uses the Nobitex API, account-level risk limits, and audit logs under `reports/live_trading/`.
+> [!WARNING]
+> Read `docs/live_trading.md` before using real credentials. Live trading can place real orders when started with real mode and valid API credentials.
 
-Start live trading:
+## Configuration
+
+Runtime settings are loaded from `.env` with the `NOBITEX_` prefix.
+
+Create a local environment file:
 
 ```bash
+cp .env.example .env
+```
+
+Minimal Nobitex API configuration:
+
+```env
+NOBITEX_ENV=prod
+NOBITEX_API_TOKEN=your_token_here
+```
+
+Important settings:
+
+| Setting | Purpose |
+| --- | --- |
+| `NOBITEX_ENV` | Runtime environment name |
+| `NOBITEX_API_TOKEN` | Nobitex API token for authenticated requests |
+| `NOBITEX_COMMISSION_RATE` | Static commission assumption |
+| `NOBITEX_SPREAD_BPS` | Static spread assumption in basis points |
+| `NOBITEX_SLIPPAGE_BPS` | Static slippage assumption in basis points |
+| `NOBITEX_RANDOM_SEED` | Default reproducibility seed |
+| `NOBITEX_EXECUTION_MODEL` | Backtest execution timing model |
+| `NOBITEX_EXECUTION_MODE` | `static` or `calibrated` cost mode |
+| `NOBITEX_EXECUTION_PROFILE_PATH` | Saved calibrated profile path |
+| `NOBITEX_MAX_POSITIONS` | Position limit |
+| `NOBITEX_ALLOW_SHORTING` | Short-selling toggle |
+| `NOBITEX_PAPER_CAPITAL` | Default paper trading capital |
+| `NOBITEX_LIVE_MAX_POSITION_SIZE` | Live position size limit |
+| `NOBITEX_LIVE_MAX_DAILY_LOSS` | Live daily loss limit |
+| `NOBITEX_LIVE_RISK_PER_TRADE` | Live risk-per-trade default |
+| `NOBITEX_WEBSOCKET_URL` | Market feed URL |
+| `NOBITEX_MARKET_DATA_POLL_SECONDS` | Poll interval for market data helpers |
+
+See `docs/configuration.md` for the full reference.
+
+## Testing and Validation
+
+Run all tests:
+
+```bash
+pytest
+```
+
+Run tests with coverage:
+
+```bash
+pytest --cov
+```
+
+Run framework correctness scenarios:
+
+```bash
+quant test correctness
+```
+
+Validate a user strategy:
+
+```bash
+quant strategy validate --file strategies/user/my_strategy.py
+```
+
+Validation checks include:
+
+- inheritance from `BaseStrategy`
+- safe construction without required arguments
+- indicator shape and index alignment
+- deterministic replay behavior
+- reset safety
+- anti-lookahead behavior under future-data mutation
+
+## Trust and Correctness Model
+
+This repository prioritizes reproducible research over optimistic simulation.
+
+- Strategies receive historical slices, not future bars.
+- Signals are generated bar-by-bar and executed through the configured model.
+- Costs are applied consistently on entries and exits.
+- Strategy instances are reset before runs when supported.
+- Backtest outputs include seed, cost settings, execution mode, and reproducibility metadata.
+- Correctness checks cover known-result scenarios such as buy-and-hold and cost drag.
+- Paper/live trading state is operationally separate from research backtests.
+
+Core expectation: identical input data, strategy code, configuration, and seed should produce identical trades and metrics.
+
+## Documentation Map
+
+Start here if you are new to the project:
+
+- `docs/AI_AGENT_ONBOARDING.md` — short onboarding brief for AI agents and future maintainers
+- `docs/trust_backtesting.md` — trust model, execution assumptions, and signal metadata behavior
+- `docs/testing_guide.md` — correctness-critical testing guidance
+- `docs/configuration.md` — environment variables and reproducibility-sensitive settings
+- `docs/live_trading.md` — paper/live trading setup, commands, and safety notes
+- `docs/api/nobitex_reference.md` — Nobitex endpoint summary used by the client
+
+Strategy development:
+
+- `docs/strategy_development/writing_strategies.md` — strategy authoring rules
+- `docs/strategy_development/validation_process.md` — validation workflow and checks
+- `strategies/user/AI_GUIDE.md` — practical guide for AI-written strategies
+- `strategies/user/AI_CHECKLIST.md` — review checklist before accepting a strategy
+- `strategies/user/example_ai_strategy.py` — minimal example strategy
+
+Implementation references:
+
+- `core/backtest_engine.py` — execution model, positions, trust payload
+- `core/cost_engine.py` — commission, spread, and slippage modeling
+- `core/data_manager.py` — historical data download and local CSV caching
+- `core/execution_profile.py` — static vs calibrated execution profile schema
+- `core/execution_calibrator.py` — order-book-based calibration helpers
+- `strategies/base/validation.py` — strategy validation and replay checks
+- `backtest/correctness_checker.py` — known-result correctness scenarios
+
+## Useful Commands
+
+```bash
+# CLI help
+quant --help
+
+# Correctness checks
+quant test correctness
+
+# Full test suite
+pytest
+
+# Coverage
+pytest --cov
+
+# Download data
+quant data fetch --symbol BTCIRT --timeframe 15 --months 3
+
+# Backtest built-in strategy
+quant backtest --strategy MACrossoverStrategy --symbol BTCIRT --data-file data/btcirt_15m_2026-01-19_2026-04-19.csv
+
+# Validate custom strategy
+quant strategy validate --file strategies/user/my_strategy.py
+
+# Compare reports
+quant compare-runs --run1 reports/run1.json --run2 reports/run2.json
+
+# Calibrate costs
+quant calibrate execution --symbol BTCIRT --samples 5
+
+# Paper trading
+quant paper start --strategy MACrossoverStrategy --symbol BTCIRT --capital 10000
+
+# Live test mode
 quant live start --strategy MACrossoverStrategy --symbol BTCIRT --capital 10000 --risk 0.01 --test-mode
-```
 
-Check status:
-
-```bash
-quant live status
-```
-
-Inspect open positions from saved reports:
-
-```bash
-quant live positions
-```
-
-Emergency stop all active live sessions:
-
-```bash
+# Emergency live stop
 quant live stop --emergency
 ```
 
-Read `docs/live_trading.md` before using these commands.
+## Notes and Limitations
 
-## Notes and limitations
+- The backtest engine currently supports one open engine-level position at a time.
+- Live and paper trading helpers are operational scaffolding, not a replacement for exchange-grade infrastructure.
+- Calibrated execution profiles depend on sampled market conditions and should be refreshed for realism-sensitive studies.
+- Historical performance does not guarantee future returns.
+- Always start with `--test-mode` before using real credentials.
 
-- The backtest engine supports one open engine-level position at a time
-- Live and paper-trading helpers under `live/` are separate from research/backtest execution in `core/` and `backtest/`
-- User strategies may express custom sizing and explicit fills through signal metadata, but portfolio/broker state still lives in the engine
+## Disclaimer
 
-## Testing and review expectations
-
-When changing correctness-sensitive code, prefer to cover at least one of these:
-
-- deterministic replay of the same strategy/data/seed
-- anti-lookahead behavior under mutated future data
-- strategy-state reset behavior across repeated runs
-- cost-model behavior for commission, spread, and slippage
-- CLI behavior matching the documented workflow
-
-Relevant test areas:
-
-- `tests/integration/` for end-to-end backtest and CLI behavior
-- `tests/property/` for invariants
-- `tests/strategies/` for validation and user-strategy regressions
-- `tests/unit/` for focused component behavior
-- `tests/unit/test_live.py` and `tests/integration/test_correctness_and_cli.py` for paper/live and CLI flows
-
-## Recommended reading order
-
-For a human or AI agent trying to understand the repo quickly:
-
-1. `docs/AI_AGENT_ONBOARDING.md`
-2. `README.md`
-3. `docs/trust_backtesting.md`
-4. `docs/testing_guide.md`
-5. `docs/strategy_development/writing_strategies.md`
-6. `docs/strategy_development/validation_process.md`
-7. `core/backtest_engine.py`
-8. `strategies/base/validation.py`
-9. `docs/live_trading.md`
-
-- The current implementation is focused on long-only, single-symbol backtesting
-- Partial fills are not modeled
-- WebSocket streaming is not implemented in the core API client yet
-- The live engine is scaffolding-oriented and intended for controlled extension
-
-If you want to extend the system, the safest workflow is:
-
-1. add a strategy under `strategies/user/`
-2. validate it with `quant strategy validate`
-3. run `pytest --cov`
-4. backtest it on a prepared CSV dataset
-
-📝 Nobitex Quant System - Complete Quick Start Guide
-
- ====================================================================
- 1. FETCH HISTORICAL DATA
- ====================================================================
- Download price data from Nobitex API for backtesting and analysis
- - symbol: Trading pair (BTCIRT, BTCUSDT, PAXGIRT)
- - timeframe: Minutes per candle (15, 60, 240)
- - months: Number of past months to download
- - overwrite: Overwrite existing file if present
-
-quant data fetch --symbol BTCIRT --timeframe 60 --months 3 --overwrite
-
-
- ====================================================================
- 2. VALIDATE STRATEGY
- ====================================================================
- Verify strategy correctness and safety before backtesting
- Checks performed:
- - Inherits from BaseStrategy
- - Instantiable without constructor arguments
- - No future data leakage
- - Indicator alignment with input data
- - Deterministic and replayable
-
-quant strategy validate --file strategies/user/SimpleBuyAndHold.py
-
-
- ====================================================================
- 3. RUN BACKTEST
- ====================================================================
- Simulate strategy execution on historical data
- - strategy: Strategy class name
- - symbol: Trading pair symbol
- - data-file: Path to CSV data file
- - capital: Initial capital
- - execution: Execution model (next_open = next bar open)
- - seed: Random seed for reproducibility
-
-quant backtest --strategy SimpleBuyAndHold --symbol BTCIRT --data-file data/btcirt_60m_2026-01-26_2026-04-26.csv --capital 1000000 --execution next_open --seed 42
-
-
- ====================================================================
- 4. PAPER TRADING (Virtual Trading)
- ====================================================================
- Run strategy in simulated environment with virtual capital
- - No real money involved
- - Real-time prices fetched from Nobitex API
- - All trades logged to reports/paper_trading/
- - Safe for testing strategies in live market conditions
-
- Start paper trading session
-quant paper start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --max-ticks 500
-
- Start with custom settings (custom tick interval)
-quant paper start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --interval-seconds 60 --max-ticks 1000
-
- List active sessions
-quant paper list
-
- View session report
-quant paper report --session-id <session_id>
-
- Stop a running session
-quant paper stop --session-id <session_id>
-
- Stop all active sessions
-quant paper stop --all
-
-
- ====================================================================
- 5. LIVE TRADING (Real Trading - USE WITH CAUTION)
- ====================================================================
- Execute strategy with real money on the exchange
- ⚠️ WARNING: Real capital at risk
- Prerequisites:
- - Configure NOBITEX_API_TOKEN in .env file
- - Test with --test-mode first
- - Set daily loss limits and max position sizes
-
- Start with test mode (safe - no real execution)
-quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.02 --test-mode
-
- Start live trading (requires API key in .env)
-quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.01
-
- Start with lower risk (0.5% per trade)
-quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.005 --max-position 50000
-
- Check trading status
-quant live status
-
- View open positions
-quant live positions
-
- Emergency stop (cancel all orders and close positions)
-quant live stop --emergency
-
- Graceful stop for a specific session
-quant live stop --session-id <session_id>
-
-
- ====================================================================
- 6. ONE-LINE COMMANDS
- ====================================================================
-
- Fetch + Validate + Backtest (all in one line)
-quant data fetch --symbol BTCIRT --timeframe 60 --months 3 --overwrite && quant strategy validate --file strategies/user/SimpleBuyAndHold.py && quant backtest --strategy SimpleBuyAndHold --symbol BTCIRT --data-file data/btcirt_60m_2026-01-26_2026-04-26.csv --capital 1000000 --execution next_open --seed 42
-
- Start paper trading
-quant paper start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --max-ticks 500
-
- Start live trading in test mode
-quant live start --strategy SimpleBuyAndHold --symbol BTCIRT --capital 1000000 --risk 0.02 --test-mode
-
-
- ====================================================================
- 7. RESULTS & REPORTS
- ====================================================================
-
- After backtest, reports are created in reports/ folder:
- - reports/latest_backtest.json (Raw JSON data)
- - reports/latest_backtest.html (Visual HTML report)
-
- Quick view of last backtest result
-python -c "import json; d=json.load(open('reports/latest_backtest.json')); print(f'Return: {d['metrics']['total_return']*100:.2f}%, Sharpe: {d['metrics']['sharpe']:.2f}, Trades: {len(d['trades'])}')"
-
- Paper trading reports location:
- - reports/paper_trading/<session_id>.json
- - reports/paper_trading/<session_id>.html
-
- Live trading reports location:
- - reports/live_trading/<session_id>.json
-
-
- ====================================================================
- IMPORTANT NOTES
- ====================================================================
-
- Paper Trading:
- ✅ No financial risk
- ✅ Ideal for strategy validation in real conditions
- ✅ Real-time prices from Nobitex API
- ✅ Full session logging and reporting
-
- Live Trading:
- ⚠️ Real capital at risk
- ⚠️ Always test with --test-mode first
- ⚠️ Set risk between 0.01 and 0.02 (1% to 2%)
- ⚠️ Keep --emergency kill switch ready
- ⚠️ Configure .env with valid API token
-
- Best Practices:
- 1. Always fetch fresh data first
- 2. Validate your strategy
- 3. Run backtests
- 4. Paper trade to verify live behavior
- 5. Start live trading with minimal capital after full validation
+This project is for research and engineering workflows. It is not financial advice, and it does not guarantee profitable trading. Use real trading features only after reviewing the code, configuration, exchange behavior, and risk limits yourself.
